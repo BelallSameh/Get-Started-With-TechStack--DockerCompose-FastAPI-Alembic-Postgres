@@ -34,6 +34,14 @@ def clean_text(text):
 
     return text
 
+def paginate_text(text, token_limit=TOKEN_LIMIT):
+    """
+    Split the text into smaller chunks based on the token limit.
+    """
+    words = text.split()
+    chunks = [' '.join(words[i:i + token_limit]) for i in range(0, len(words), token_limit)]
+    return chunks
+
 def paginate_output(text, page_size=500):
     """
     Paginate the output into chunks of `page_size`.
@@ -44,17 +52,23 @@ def gemini_response(text):
     """
     Process the input, send it to the model, and handle the response.
     """
-    # Step 1: Enforce token limit
-    if len(text.split()) > TOKEN_LIMIT:
-        raise ValueError(f"Input exceeds token limit of {TOKEN_LIMIT} tokens.")
-
-    # Step 2: Get the response from the model
     try:
-        response = model.generate_content(text)
-        cleaned_text = clean_text(response.text)
+        # Step 1: Check and paginate input if needed
+        if len(text.split()) > TOKEN_LIMIT:
+            input_chunks = paginate_text(text, TOKEN_LIMIT)
+        else:
+            input_chunks = [text]
 
-        # Step 3: Paginate the output if it exceeds a reasonable length
-        pages = paginate_output(cleaned_text)
+        responses = []
+        for chunk in input_chunks:
+            # Step 2: Get the response for each chunk
+            response = model.generate_content(chunk)
+            cleaned_text = clean_text(response.text)
+            responses.append(cleaned_text)
+
+        # Step 3: Combine all responses and paginate the final output
+        combined_output = ' '.join(responses)
+        pages = paginate_output(combined_output)
 
         # Return paginated output
         return {
